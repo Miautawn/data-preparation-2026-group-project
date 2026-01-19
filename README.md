@@ -9,8 +9,13 @@ To download the dependencies and instantiate the project virtual environment, si
 uv sync
 ```
 
-> [!NOTE]  
+> [!NOTE]
 > UV uses `pyproject.toml` and `uv.lock` to track and lock the dependencise, so make sure to commit them!
+
+Then, setup the pre-commit hooks by running:
+```
+pre-commit install
+```
 
 ## Project structure
 We use standard python "package/library" project structure:

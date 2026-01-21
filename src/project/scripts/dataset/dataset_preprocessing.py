@@ -95,16 +95,28 @@ pq.write_table(table, CACHE_DIR / "endomondoHR_proper_interpolated.parquet")
 # STEP 2 #
 ##########
 
-# Read the endomondoHR_proper.json and construct a mapping for prefiltered workouts' timestamp -> altitude
-# for faster loopkup and joining to the processed_endomondoHR_proper_interpolate
-
-print("STEP 2: Constructing raw altitude mapping from endomondoHR_proper.json....")
+# Filtering out users who have less than 10 workouts - this will ensure enough samples for train/val/test splits
+# and match the advertised dataset size of 102,343 workouts
+print("STEP 2: Filtering users with less than 10 workouts....")
 
 df = pd.read_parquet(
     CACHE_DIR / "endomondoHR_proper_interpolated.parquet",
     dtype_backend="pyarrow",
 )
 
+user_ids = df["userId"].value_counts()
+user_ids_mask = user_ids[user_ids >= 10].index
+
+df = df[df["userId"].isin(user_ids_mask)]
+
+
+##########
+# STEP 3 #
+##########
+
+# Read the endomondoHR_proper.json and construct a mapping for prefiltered workouts' timestamp -> altitude
+# for faster loopkup and joining to the processed_endomondoHR_proper_interpolate
+print("STEP 3: Constructing raw altitude mapping from endomondoHR_proper.json....")
 workout_id_set = set(df["id"].values)
 
 
@@ -124,12 +136,12 @@ with open("./.cache/endomondoHR_proper.json", "r") as f:
             }
 
 ##########
-# STEP 3 #
+# STEP 4 #
 ##########
 
 # "Join" the unprocessed altitude from endomondoHR_proper.json to processed_endomondoHR_proper_interpolate using the workout id and timestamp as join keys
 
-print("STEP 3: Attaching raw altitudes...")
+print("STEP 4: Attaching raw altitudes...")
 
 
 def get_altitude_array(workout_id: int, timestamps: list[int]):
@@ -142,12 +154,12 @@ df["altitude"] = df[["id", "timestamp"]].apply(
 
 
 ##########
-# STEP 4 #
+# STEP 5 #
 ##########
 
 # Export the final result
 
-print("STEP 4: Exporting final dataframe: 'endomondoHR_proper_interpolated.parquet'")
+print("STEP 5: Exporting final dataframe: 'endomondoHR_proper_interpolated.parquet'")
 
 final_schema = schema.append(pa.field("altitude", pa.list_(pa.float64())))
 

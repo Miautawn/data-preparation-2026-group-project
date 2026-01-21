@@ -15,7 +15,7 @@ The final dataset `endomondoHR_proper_interpolated.parquet` should contain all t
 ## How to run
 
 You can run the master script `dataset_make.sh`, which will output the final dataset `endomondoHR_proper_interpolated.parquet` in the `.cache` temporary directory.
-Alternatively, you can download the final dataset from [here](https://drive.google.com/file/d/1lRjF0MdHsFaMTzYtq5a2opvWvevaZMz9/view?usp=sharing)
+Alternatively, you can download the final dataset from [here](https://drive.google.com/file/d/1a4UuYh1Oa6ji-anb1OxJa3i78I39R0Y8/view?usp=sharing)
 
 Otherwise, you can run scripts individually
 
@@ -24,7 +24,7 @@ Otherwise, you can run scripts individually
 ./dataset_download.sh
 ```
 
-2. Run the dataset preprocessing script:
+1. Run the dataset preprocessing script:
 ```sh
 uv run python dataset_preprocessing.py
 ```

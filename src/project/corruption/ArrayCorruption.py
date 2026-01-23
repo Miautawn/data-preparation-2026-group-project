@@ -12,12 +12,12 @@ class UnusualValueCorruption(DataCorruption):
     the internal differences within the segment.
     """
 
-    def __init__(self, column, row_fraction=1.0, segment_fraction=0.2, std_scale=2, seed=None):
+    def __init__(self, columns, row_fraction=1.0, segment_fraction=0.2, std_scale=2, seed=None):
         """
         Initialize WeirdValueCorruption.
 
         Args:
-            column (str): Name of the column to corrupt
+            columns (list): List of columns to corrupt -- new --
             row_fraction (float): Fraction of rows in dataset to corrupt (0.0 to 1.0)
             segment_fraction (float): Fraction of elements in each array to corrupt (0.0 to 1.0)
             std_scale (float): Scaling std for corruption (must be > 1)
@@ -29,7 +29,7 @@ class UnusualValueCorruption(DataCorruption):
         if std_scale <= 1:
             raise ValueError(f"std_scale must be > 1, got {std_scale}")
 
-        self.column = column
+        self.columns = columns
         self.row_fraction = row_fraction
         self.segment_fraction = segment_fraction
         self.std_scale = std_scale
@@ -41,8 +41,9 @@ class UnusualValueCorruption(DataCorruption):
         if self.seed is not None:
             np.random.seed(self.seed)
 
-        if self.column not in corrupted_data.columns:
-            raise ValueError(f"Column '{self.column}' not found in data")
+        for col in self.columns:
+            if col not in corrupted_data.columns:
+                raise ValueError(f"Column '{col}' not found in data")
 
         # Determine which rows to corrupt
         n_rows = len(corrupted_data)
@@ -53,7 +54,8 @@ class UnusualValueCorruption(DataCorruption):
 
         # Apply corruption to selected rows
         for idx in rows_to_corrupt:
-            corrupted_data.at[idx, self.column] = self.corrupt_array(corrupted_data.at[idx, self.column])
+            for col in self.columns:
+                corrupted_data.at[idx, col] = self.corrupt_array(corrupted_data.at[idx, col])
 
         return corrupted_data
 

@@ -8,8 +8,7 @@ class MultipleSpikeCorruption(DataCorruption):
     Data corruption that shifts continuous segments to unusual values.
 
     This corruption identifies segments of data and shifts them to unusual values
-    (much higher or lower than typical changes in the array) while preserving
-    the internal differences within the segment.
+    to reach a certain scale in std.
     """
 
     def __init__(self, columns, row_fraction=1.0, segment_fraction=0.2, num_segments=2, std_scale=2, seed=None):

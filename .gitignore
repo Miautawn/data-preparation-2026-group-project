@@ -2,3 +2,6 @@ __pycache__
 .venv
 .cache
 *.parquet
+*.pth
+.DS_Store
+.ipynb_checkpoints

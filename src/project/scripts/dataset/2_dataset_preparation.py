@@ -5,27 +5,20 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+from project.utils.dataset.schemas import BASE_SCHEMA
 from tqdm import tqdm
 
 SCRIPT_DIR = Path(__file__).parent.absolute()
 CACHE_DIR = SCRIPT_DIR / ".cache"
 
-# final schema must be:
-# userId
-# id
-# sport
-# gender
-# timestamp
-# derived_speed - unnormalized (just take tar_derived_speed)
-# heart_rate - unnormalized (just take tar_heart_rate)
-# derived_distance - just do derived_speed * (t - t) / 3600
-# longitude
-# latitude
-# altitude -  unnormalized (take from the endomondoHR_proper.json)
-# time_elapsed - static sequence across points (calculate natively)
-# since_begin - single static number across points (can discard)
-# since_last - single static number across points (can discard)
+SOURCE_PATH = CACHE_DIR / "processed_endomondoHR_proper_interpolate.npy"
+OUTPUT_PATH = CACHE_DIR / "endomondoHR_proper_interpolated.parquet"
 
+if not SOURCE_PATH.exists():
+    raise FileNotFoundError(
+        f"Source dataset not found at {SOURCE_PATH}. "
+        "Please run the dataset_download.sh script first."
+    )
 
 ##########
 # STEP 1 #
@@ -36,9 +29,7 @@ CACHE_DIR = SCRIPT_DIR / ".cache"
 
 print("STEP 1: parsing processed_endomondoHR_proper_interpolate.npy....")
 
-processed_interpolated_data = np.load(
-    CACHE_DIR / "processed_endomondoHR_proper_interpolate.npy", allow_pickle=True
-)[0]
+processed_interpolated_data = np.load(SOURCE_PATH, allow_pickle=True)[0]
 
 pure_data_list = []
 for i in tqdm(range(processed_interpolated_data.shape[0])):
@@ -69,31 +60,24 @@ for i in tqdm(range(processed_interpolated_data.shape[0])):
     )
     pure_data["time_elapsed"] = timestamp_diff.cumsum().values.astype(int)
 
+    # Add dummy altitude field to satisfy schema
+
     pure_data_list.append(pure_data)
+    pure_data["altitude"] = np.array([0])
 
-schema = pa.schema(
-    [
-        pa.field("id", pa.int64()),
-        pa.field("userId", pa.int64()),
-        pa.field("sport", pa.string()),
-        pa.field("gender", pa.string()),
-        pa.field("timestamp", pa.list_(pa.int64())),
-        pa.field("derived_speed", pa.list_(pa.float64())),
-        pa.field("heart_rate", pa.list_(pa.float64())),
-        pa.field("longitude", pa.list_(pa.float64())),
-        pa.field("latitude", pa.list_(pa.float64())),
-        pa.field("derived_distance", pa.list_(pa.float64())),
-        pa.field("time_elapsed", pa.list_(pa.int64())),
-    ]
-)
+table = pa.Table.from_pylist(pure_data_list, schema=BASE_SCHEMA)
+pq.write_table(table, OUTPUT_PATH)
 
+del processed_interpolated_data, pure_data_list, table
 
-table = pa.Table.from_pylist(pure_data_list, schema=schema)
-pq.write_table(table, CACHE_DIR / "endomondoHR_proper_interpolated.parquet")
 
 ##########
 # STEP 2 #
 ##########
+df = pd.read_parquet(
+    OUTPUT_PATH,
+    dtype_backend="pyarrow",
+)
 
 # Filtering out users who have less than 10 workouts - this will ensure enough samples for train/val/test splits
 # and match the advertised dataset size of 102,343 workouts
@@ -109,16 +93,16 @@ user_ids_mask = user_ids[user_ids >= 10].index
 
 df = df[df["userId"].isin(user_ids_mask)]
 
-
 ##########
 # STEP 3 #
 ##########
 
 # Read the endomondoHR_proper.json and construct a mapping for prefiltered workouts' timestamp -> altitude
 # for faster loopkup and joining to the processed_endomondoHR_proper_interpolate
-print("STEP 3: Constructing raw altitude mapping from endomondoHR_proper.json....")
-workout_id_set = set(df["id"].values)
 
+print("STEP 3: Constructing raw altitude mapping from endomondoHR_proper.json....")
+
+workout_id_set = set(df["id"].values)
 
 # now read the endomondoHR_proper.json line by line and make a mapping for each workout
 # for each timestamp -> altitude
@@ -161,10 +145,8 @@ df["altitude"] = df[["id", "timestamp"]].apply(
 
 print("STEP 5: Exporting final dataframe: 'endomondoHR_proper_interpolated.parquet'")
 
-final_schema = schema.append(pa.field("altitude", pa.list_(pa.float64())))
-
 df.to_parquet(
-    CACHE_DIR / "endomondoHR_proper_interpolated.parquet",
-    schema=final_schema,
+    OUTPUT_PATH,
+    schema=BASE_SCHEMA,
     engine="pyarrow",
 )

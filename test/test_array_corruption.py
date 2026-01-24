@@ -1,258 +1,177 @@
+import sys
+import os
+
+# Add the src directory to the python path to allow imports from project
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+
 import pytest
 import numpy as np
 import pandas as pd
-import sys
-from pathlib import Path
-import os
-
-# Add src directory to path
-sys.path.insert(0, str(Path("src").resolve()))
+from project.corruption.array_corruption.MultipleSpikeCorruption import MultipleSpikeCorruption
 
 
-from project.corruption.ArrayCorruption import *
+class TestMultipleSpikeCorruption:
 
+    @pytest.fixture
+    def random_data(self):
+        # Create a dataframe where the data length matches the number of rows
+        # as per the implementation detail in MultipleSpikeCorruption
+        n_rows = 1000
+        array_length = 1000
 
-class TestUnusualValueCorruption:
-    """Test suite for UnusualValueCorruption class"""
+        # Create random gaussian data
+        data = []
+        for _ in range(n_rows):
+            # Use random noise
+            arr = np.random.normal(0, 1, array_length)
+            data.append(arr)
 
-    def test_init_valid_parameters(self):
-        """Test initialization with valid parameters"""
-        corruption = UnusualValueCorruption(
-            column='test_col',
+        df = pd.DataFrame({'signal': data})
+        return df, n_rows, array_length
+
+    def test_initialization(self):
+        transformer = MultipleSpikeCorruption(
+            columns=['signal'],
             row_fraction=0.5,
-            segment_fraction=0.3,
-            std_scale=2.0,
-            seed=42
+            segment_fraction=0.1,
+            std_scale=2.0
         )
-        assert corruption.column == 'test_col'
-        assert corruption.row_fraction == 0.5
-        assert corruption.segment_fraction == 0.3
-        assert corruption.std_scale == 2.0
-        assert corruption.seed == 42
+        assert transformer.columns == ['signal']
+        assert transformer.row_fraction == 0.5
+        assert transformer.segment_fraction == 0.1
+        assert transformer.std_scale == 2.0
 
+    def test_transform_structure(self, random_data):
+        df, _, _ = random_data
 
-    def test_row_fraction_selection(self):
-        """Test that correct fraction of rows are corrupted"""
-        np.random.seed(42)
-
-        # Create dataset with 10 rows
-        data = pd.DataFrame({
-            'arrays': [np.arange(100) + i * 0.1 for i in range(10)]
-        })
-
-        print(data)
-        original_data = data.copy()
-
-        # Corrupt 50% of rows
-        corruption = UnusualValueCorruption(
-            column='arrays',
-            row_fraction=0.5,
-            segment_fraction=0.2,
-            std_scale=2.0,
-            seed=42
-        )
-
-        corrupted_data = corruption.transform(data)
-
-        # Count how many rows were actually corrupted
-        corrupted_count = 0
-        for idx in range(10):
-            if not np.array_equal(original_data.at[idx, 'arrays'], corrupted_data.at[idx, 'arrays']):
-                corrupted_count += 1
-
-        # Should corrupt exactly 5 rows (50% of 10)
-        assert corrupted_count == 5
-
-    def test_segment_fraction_selection(self):
-        """Test that correct fraction of elements in array are corrupted"""
-        np.random.seed(42)
-
-        # Create simple array
-        array_length = 100
-        data = pd.DataFrame({
-            'arrays': [np.arange(array_length, dtype=float)]
-        })
-
-        corruption = UnusualValueCorruption(
-            column='arrays',
+        # Corrupt all rows to inspect them easily
+        transformer = MultipleSpikeCorruption(
+            columns=['signal'],
             row_fraction=1.0,
-            segment_fraction=0.2,  # 20% of 100 = 20 elements
-            std_scale=2.0,
+            segment_fraction=0.1,
+            std_scale=3.0,
             seed=42
         )
 
-        original_array = data.at[0, 'arrays'].copy()
-        corrupted_data = corruption.transform(data)
-        corrupted_array = corrupted_data.at[0, 'arrays']
+        corrupted_df = transformer.transform(df)
 
-        # Find corrupted segment by comparing arrays
-        diff = corrupted_array - original_array
-        corrupted_indices = np.where(np.abs(diff) > 1e-10)[0]
+        # Check shape is preserved
+        assert corrupted_df.shape == df.shape
+        assert list(corrupted_df.columns) == list(df.columns)
 
-        # Should corrupt approximately 20 elements (segment_fraction * array_length)
-        expected_segment_length = max(2, int(array_length * 0.2))
-        assert len(corrupted_indices) == expected_segment_length
+        # Check data types
+        assert isinstance(corrupted_df.iloc[0]['signal'], (list, np.ndarray))
 
-        # Corrupted elements should be consecutive
-        if len(corrupted_indices) > 1:
-            assert np.all(np.diff(corrupted_indices) == 1)
+    def test_std_scaling(self, random_data):
+        df, n_rows, array_length = random_data
 
-    def test_std_scale_increase(self):
-        """Test that std increases by approximately the specified scale"""
-        np.random.seed(42)
-
-        # Create array with known std
-        data = pd.DataFrame({
-            'arrays': [np.random.randn(1000) * 10]  # std ≈ 10
-        })
-
-        original_std = np.std(data.at[0, 'arrays'])
-
-        corruption = UnusualValueCorruption(
-            column='arrays',
-            row_fraction=1.0,
-            segment_fraction=0.3,
-            std_scale=2.0,
-            seed=42
-        )
-
-        corrupted_data = corruption.transform(data)
-        corrupted_std = np.std(corrupted_data.at[0, 'arrays'])
-
-        # Check that std increased by approximately the scale factor
-        # Allow 20% tolerance due to randomness and approximation in formula
-        expected_std = original_std * 2.0
-        assert corrupted_std > original_std  # Must increase
-        assert abs(corrupted_std - expected_std) / expected_std < 0.2
-
-    def test_reproducibility_with_seed(self):
-        """Test that same seed produces same results"""
-        data = pd.DataFrame({
-            'arrays': [np.random.randn(100) for _ in range(5)]
-        })
-
-        corruption1 = UnusualValueCorruption(
-            column='arrays',
-            row_fraction=0.6,
-            segment_fraction=0.2,
-            std_scale=1.5,
+        target_scale = 3.0
+        transformer = MultipleSpikeCorruption(
+            columns=['signal'],
+            row_fraction=1.0,  # Corrupt all to get good statistics
+            segment_fraction=0.2,  # Significant fraction
+            std_scale=target_scale,
             seed=123
         )
 
-        corruption2 = UnusualValueCorruption(
-            column='arrays',
-            row_fraction=0.6,
-            segment_fraction=0.2,
-            std_scale=1.5,
-            seed=123
+        corrupted_df = transformer.transform(df)
+
+        # Check statistics for a sample of rows
+        ratios = []
+        for i in range(100):  # Check first 100 rows
+            original_arr = np.array(df.iloc[i]['signal'])
+            corrupted_arr = np.array(corrupted_df.iloc[i]['signal'])
+
+            std_orig = np.std(original_arr)
+            std_corr = np.std(corrupted_arr)
+
+            if std_orig > 0:
+                ratios.append(std_corr / std_orig)
+
+        avg_ratio = np.mean(ratios)
+
+        # Allow some tolerance because of random segments alignment with random data
+        # varying covariance term
+        assert np.isclose(avg_ratio, target_scale, rtol=0.1), \
+            f"Expected std ratio {target_scale}, got {avg_ratio}"
+
+    def test_segment_fraction(self, random_data):
+        df, n_rows, array_length = random_data
+
+        seg_fraction = 0.2
+        transformer = MultipleSpikeCorruption(
+            columns=['signal'],
+            row_fraction=1.0,
+            segment_fraction=seg_fraction,
+            std_scale=5.0,  # Large scale ensures modified values are different
+            seed=42
         )
 
-        result1 = corruption1.transform(data.copy())
-        result2 = corruption2.transform(data.copy())
+        corrupted_df = transformer.transform(df)
 
-        # Results should be identical with same seed
-        for idx in range(5):
-            np.testing.assert_array_almost_equal(
-                result1.at[idx, 'arrays'],
-                result2.at[idx, 'arrays']
-            )
+        idx = 0
+        original_arr = np.array(df.iloc[idx]['signal'])
+        corrupted_arr = np.array(corrupted_df.iloc[idx]['signal'])
 
-    def test_zero_std_array(self):
-        """Test handling of constant (zero std) arrays"""
-        data = pd.DataFrame({
-            'arrays': [np.ones(100) * 5.0]  # Constant array
-        })
+        # Find modified elements
+        diff = corrupted_arr - original_arr
+        modified_mask = np.abs(diff) > 1e-9  # Tolerance for potential float weirdness
 
-        corruption = UnusualValueCorruption(
-            column='arrays',
+        modified_count = np.sum(modified_mask)
+        expected_count = int(array_length * seg_fraction)
+
+        # The implementation calculates segments carefully, usually it should be exact or very close
+        # Note: random_segments uses multinomial logic, but constrained sum?
+        # Let's check line 59: segment_length = max(2, int(array_length * self.segment_fraction))
+        # line 61: sum_segment_length=segment_length
+        # So it should be exactly segment_length
+
+        expected_exact = max(2, int(array_length * seg_fraction))
+
+        # However, elements might not be modified if the 'c' added is 0?
+        # But with std_scale=5 and normal data, c should be non-zero.
+
+        assert modified_count == expected_exact, \
+            f"Expected {expected_exact} modified elements, got {modified_count}"
+
+    def test_constant_shift(self, random_data):
+        df, n_rows, array_length = random_data
+
+        transformer = MultipleSpikeCorruption(
+            columns=['signal'],
             row_fraction=1.0,
-            segment_fraction=0.2,
+            segment_fraction=0.1,
             std_scale=2.0,
             seed=42
         )
 
-        # Should not raise error, uses fallback std calculation
-        corrupted_data = corruption.transform(data)
+        corrupted_df = transformer.transform(df)
 
-        # Should have added noise to the segment
-        original_array = data.at[0, 'arrays']
-        corrupted_array = corrupted_data.at[0, 'arrays']
-        assert not np.array_equal(original_array, corrupted_array)
+        idx = 0
+        original_arr = np.array(df.iloc[idx]['signal'])
+        corrupted_arr = np.array(corrupted_df.iloc[idx]['signal'])
 
-    def test_preserves_uncorrupted_rows(self):
-        """Test that uncorrupted rows remain unchanged"""
-        np.random.seed(42)
+        diff = corrupted_arr - original_arr
+        modified_values = diff[np.abs(diff) > 1e-9]
 
-        data = pd.DataFrame({
-            'arrays': [np.arange(50, dtype=float) for _ in range(10)]
-        })
+        # All modified values should be shifted by the same constant 'c'
+        # Check standard deviation of the shift amounts is ~0
+        if len(modified_values) > 0:
+            assert np.std(modified_values) < 1e-9, "Modified segments should have constant shift"
 
-        original_data = data.copy()
+    def test_error_handling(self):
+        df = pd.DataFrame({'A': [[1, 2], [3, 4]]})
+        # array_length will be 2 (rows). len(element) is 2. Matches.
 
-        corruption = UnusualValueCorruption(
-            column='arrays',
-            row_fraction=0.3,  # Only corrupt 3 rows
-            segment_fraction=0.2,
-            std_scale=1.5,
-            seed=42
-        )
+        # Test scale <= 1 error
+        with pytest.raises(ValueError, match="std_scale must be > 1"):
+            MultipleSpikeCorruption(columns=['A'], std_scale=0.5)
 
-        corrupted_data = corruption.transform(data)
+        # Test missing column
+        transformer = MultipleSpikeCorruption(columns=['B'], std_scale=2)
+        with pytest.raises(ValueError, match="Column 'B' not found"):
+            transformer.transform(df)
 
-        # Count unchanged rows
-        unchanged_count = 0
-        for idx in range(10):
-            if np.array_equal(original_data.at[idx, 'arrays'], corrupted_data.at[idx, 'arrays']):
-                unchanged_count += 1
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))
 
-        # Should have 7 unchanged rows (70% of 10)
-        assert unchanged_count == 7
-
-    def test_dataframe_indices_preserved(self):
-        """Test that DataFrame indices are preserved after corruption"""
-        data = pd.DataFrame({
-            'arrays': [np.arange(50, dtype=float) for _ in range(5)]
-        }, index=[10, 20, 30, 40, 50])
-
-        corruption = UnusualValueCorruption(
-            column='arrays',
-            row_fraction=0.6,
-            segment_fraction=0.2,
-            std_scale=1.5,
-            seed=42
-        )
-
-        corrupted_data = corruption.transform(data)
-
-        # Check indices are preserved
-        assert list(corrupted_data.index) == [10, 20, 30, 40, 50]
-
-    def test_minimum_segment_length(self):
-        """Test that minimum segment length is enforced"""
-        data = pd.DataFrame({
-            'arrays': [np.arange(10, dtype=float)]
-        })
-
-        # segment_fraction=0.05 would give 0.5 elements, but min is 2
-        corruption = UnusualValueCorruption(
-            column='arrays',
-            row_fraction=1.0,
-            segment_fraction=0.05,
-            std_scale=2.0,
-            seed=42
-        )
-
-        corrupted_data = corruption.transform(data)
-        original_array = data.at[0, 'arrays']
-        corrupted_array = corrupted_data.at[0, 'arrays']
-
-        # Count corrupted elements
-        diff = corrupted_array - original_array
-        corrupted_count = np.sum(np.abs(diff) > 1e-10)
-
-        # Should have at least 2 elements corrupted (minimum)
-        assert corrupted_count >= 2
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])

@@ -112,17 +112,14 @@ class RandomNoiseCorruption(DataCorruption):
         # Use population variance (ddof=0) to be consistent with np.std
         var_R = np.var(R)
 
-        # Calculate covariance manually to ensure bias=True (population) behavior
         # Cov(X, Y) = Mean(XY) - Mean(X)Mean(Y)
         mean_val = np.mean(values)
         mean_R = np.mean(R)
         cov_val_R = np.mean((values - mean_val) * (R - mean_R))
 
-        target_var_ratio = self.std_scale ** 2
-
         A = var_R
         B = 2 * cov_val_R
-        C = (1 - target_var_ratio) * (sigma ** 2)
+        C = (1 - self.std_scale ** 2) * (sigma ** 2)
 
         # If Var(R) is 0 (unlikely unless segments are empty), we can't scale
         if A == 0:
@@ -136,8 +133,6 @@ class RandomNoiseCorruption(DataCorruption):
             raise ValueError(f"Cannot find real solution for corruption magnitude. Delta={delta}, A={A}, B={B}, C={C}")
 
         # Solve for k
-        # We can pick either solution. We pick the one that aligns with B (if B>0) or just positive root?
-        # Usually (-B + sqrt(delta)) / 2A is the positive root if C < 0.
         if np.random.random() < 0.5:
             k = (-B + np.sqrt(delta)) / (2 * A)
         else:

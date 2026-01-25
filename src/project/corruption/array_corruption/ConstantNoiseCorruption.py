@@ -3,7 +3,7 @@ import pandas as pd
 from jenga.basis import DataCorruption
 
 
-class MultipleSpikeCorruption(DataCorruption):
+class ConstantNoiseCorruption(DataCorruption):
     """
     Data corruption that shifts continuous segments to unusual values.
 
@@ -157,7 +157,7 @@ if __name__ == "__main__":
 
     # Initialize corruption
     # std_scale=2.0 (default), segment_fraction=0.2 (default)
-    corrupter = MultipleSpikeCorruption(columns=['array_1', 'array_2'], std_scale=3, num_segments=1, seed=42)
+    corrupter = ConstantNoiseCorruption(columns=['array_1', 'array_2'], std_scale=3, num_segments=1, seed=42)
 
     # Apply transform
     corrupted_df = corrupter.transform(df)

@@ -29,10 +29,35 @@ df = pd.read_parquet(
 # STEP 1 #
 ##########
 
-print("STEP 1: splitting dataset into train/val/test....")
+print("STEP 1: Consolidating data types...")
+
+# We'll be experimenting and splitting the dataset by 3 views:
+# Walking, Running, Biking
+
+# To do this, we consolidate the sport categories into these 3 main categories.
+# All other sports will be categorized will be dropped.
+
+sport_category_mapping = {
+    "bike": "biking",
+    "run": "running",
+    "walk": "walking",
+    "orienteering": "walking",
+    "hiking": "walking",
+    "fitness walking": "walking",
+}
+
+df["sport"] = df["sport"].map(sport_category_mapping)
+df = df[df["sport"].notnull()]
+
+
+##########
+# STEP 2 #
+##########
+
+print("STEP 2: splitting dataset into train/val/test....")
 
 # split into train/val/test
-# 80/10/10
+# 70/10/20
 # We have to do proportional temporal split per user.
 
 # 1. Ensure data is sorted by User and Time (CRITICAL)
@@ -46,8 +71,8 @@ user_id_groupby = df.groupby("userId")
 df["user_row"] = user_id_groupby.cumcount() + 1
 df["user_rows_total"] = user_id_groupby["userId"].transform("count")
 
-df["user_rows_val_start"] = (df["user_rows_total"] * 0.8).astype(int)
-df["user_rows_test_start"] = (df["user_rows_total"] * 0.9).astype(int)
+df["user_rows_val_start"] = (df["user_rows_total"] * 0.7).astype(int)
+df["user_rows_test_start"] = (df["user_rows_total"] * 0.8).astype(int)
 
 train_df = df[df["user_row"] < df["user_rows_val_start"]].copy()
 val_df = df[
@@ -60,7 +85,7 @@ test_df = df[df["user_row"] >= df["user_rows_test_start"]].copy()
 # STEP 2 #
 ##########
 
-print("STEP 2: Exporting train/val/test splits....")
+print("STEP 3: Exporting train/val/test splits....")
 
 # Drop intermediate columns used for splitting
 # and export the results

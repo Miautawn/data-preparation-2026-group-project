@@ -30,8 +30,9 @@ src
         └── my_utils.py
 ```
 
+
 ### for running data corruption script:
-uv run python src/project/scripts/2_corrupt/corrupt_data.py \
+uv run python src/project/corruption/array_corruption/corrupt_data.py \
   --input  src/project/temp/biking/biking_test_raw.parquet \
   --output src/project/temp/biking/biking_test_raw_corrupted.parquet \
   --method random \

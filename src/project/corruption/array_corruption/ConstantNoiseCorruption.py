@@ -53,7 +53,7 @@ class ConstantNoiseCorruption(DataCorruption):
              raise ValueError(f"Column '{self.columns[0]}' must contain arrays/lists, found {type(first_val)}")
 
         for col in self.columns:
-            if len(data.loc[0, col]) != array_length:
+            if len(data[col].iloc[0]) != array_length:
                 raise ValueError(f"All columns must have same length: '{col}'")
 
         # Determine which rows to corrupt

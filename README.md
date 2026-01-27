@@ -29,3 +29,21 @@ src
         ├── __init__.py
         └── my_utils.py
 ```
+
+
+### for running data corruption script:
+uv run python src/project/corruption/array_corruption/corrupt_data.py \
+  --input  src/project/temp/biking/biking_test_raw.parquet \
+  --output src/project/temp/biking/biking_test_raw_corrupted.parquet \
+  --method random \
+  --std-scale 3.0 \
+  --row-fraction 1.0 \
+  --segment-fraction 0.2 \
+  --num-segments 2 \
+  --seed 42 \
+  --columns heart_rate derived_speed altitude
+
+## batch clean all files
+uv run python src/project/cleaning/cleaning_generic.py \
+  --root src/project/temp \
+  --pattern "**/*_test_raw_corrupted.parquet"

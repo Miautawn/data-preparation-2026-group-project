@@ -53,6 +53,10 @@ class RandomNoiseCorruption(DataCorruption):
         else:
             raise ValueError(f"Column '{self.columns[0]}' must contain arrays/lists, found {type(first_val)}")
 
+        for col in self.columns:
+            if len(data[col].iloc[0]) != array_length:
+                raise ValueError(f"All columns must have same length: '{col}'")
+
         # Determine which rows to corrupt
         n_rows = len(corrupted_data)
         n_rows_to_corrupt = max(1, int(n_rows * self.row_fraction))

@@ -13,7 +13,9 @@ Compared to a basic offline cleaner, this implements a causal / forward-only pip
 - uses a causal EMA smoother (and can apply EMA before jump-filter to reduce false spike detection)
 - clips using bounds fitted from a baseline/train file (optional but recommended)
 
-It is designed to work with your artifacts layout (walking/running/biking) and to keep column names stable.
+GPS-only focus:
+- If your corruption only affects longitude/latitude, you can run with --gps-only to
+  clean ONLY those columns and keep all other signals unchanged.
 
 Typical usage (single file):
   uv run python src/project/cleaning/advanced_cleaning.py \
@@ -21,6 +23,13 @@ Typical usage (single file):
     --fit-on src/project/temp/biking/biking_test_raw.parquet \
     --output src/project/temp/biking/biking_test_raw_corrupted_cleaned.parquet \
     --mode causal
+
+GPS-only (recommended if only lat/lon are corrupted):
+  uv run python src/project/cleaning/advanced_cleaning.py \
+    --input  src/project/temp/biking/biking_test_raw_corrupted.parquet \
+    --fit-on src/project/temp/biking/biking_test_raw.parquet \
+    --output src/project/temp/biking/biking_test_raw_corrupted_cleaned.parquet \
+    --gps-only --gps-max-jump 0.0008 --max-gap 60 --ema-alpha 0.12
 
 Directory usage:
   uv run python src/project/cleaning/advanced_cleaning.py \
@@ -181,6 +190,9 @@ class AdvancedCleaningConfig:
     seq_float_cols: List[str] = field(default_factory=lambda: SEQ_COLS_FLOAT_DEFAULT.copy())
     seq_int_cols: List[str] = field(default_factory=lambda: SEQ_COLS_INT_DEFAULT.copy())
 
+    # If set, only these float sequence columns are actually cleaned; others are passed through.
+    clean_only_cols: Optional[List[str]] = None
+
     # Validity / dropping
     drop_invalid_length_rows: bool = True
     min_seq_len: int = 5
@@ -200,10 +212,10 @@ class AdvancedCleaningConfig:
     # Causal smoothing
     smooth: bool = True
     ema_alpha: float = 0.20
-    prefilter_ema: bool = True  # apply a light EMA before jump-filter to reduce false positives
+    prefilter_ema: bool = True  # apply a light EMA before jump-filter to reduce false spike detection
     prefilter_alpha: float = 0.12
 
-    smooth_cols: Optional[List[str]] = None  # defaults to hr + speed + altitude if None
+    smooth_cols: Optional[List[str]] = None  # defaults to hr + speed + altitude + GPS (if cleaning GPS)
 
     # Plausibility ranges (wearable-realistic defaults)
     hr_min: float = 30.0
@@ -218,15 +230,17 @@ class AdvancedCleaningConfig:
     speed_max_jump: float = 6.0
     altitude_max_jump: float = 20.0
 
+    # GPS jump threshold in degrees per sample (lat/lon)
+    # Rough scale: 0.0001 deg ~ 11m latitude. So 0.0008 ~ ~90m.
+    gps_max_jump: float = 0.0008
+
     # GPS plausibility
     lat_min: float = -90.0
     lat_max: float = 90.0
     lon_min: float = -180.0
     lon_max: float = 180.0
 
-    # If a sequence is mostly missing after cleaning, we fallback to robust stats:
-    # - first try workout median (from available points in that workout)
-    # - else fallback to fitted global median (from fit-on file)
+    # Fallback strategy
     fallback_to_global_median_if_needed: bool = True
 
 
@@ -243,10 +257,17 @@ class AdvancedSequenceCleaner:
         self.clip_bounds_: Optional[Dict[str, Tuple[float, float]]] = None
         self.global_median_: Optional[Dict[str, float]] = None
 
+        # If smooth_cols is not set, choose sensible defaults.
+        # If user is doing GPS-only cleaning, include GPS in smoothing.
         if self.config.smooth_cols is None:
-            self.config.smooth_cols = [
-                c for c in ["heart_rate", "derived_speed", "altitude"] if c in self.config.seq_float_cols
-            ]
+            base = [c for c in ["heart_rate", "derived_speed", "altitude"] if c in self.config.seq_float_cols]
+            if self.config.clean_only_cols is not None:
+                # If cleaning only GPS, smooth GPS (helps remove jagged GPS artifacts)
+                if "latitude" in self.config.clean_only_cols and "latitude" in self.config.seq_float_cols:
+                    base.append("latitude")
+                if "longitude" in self.config.clean_only_cols and "longitude" in self.config.seq_float_cols:
+                    base.append("longitude")
+            self.config.smooth_cols = base
 
     def _validate_schema(self, df: pd.DataFrame) -> None:
         required = ["id"] + self.config.seq_int_cols + self.config.seq_float_cols
@@ -316,15 +337,21 @@ class AdvancedSequenceCleaner:
             df_out = df_out.loc[valid].reset_index(drop=True)
 
         def _workout_fallback(y: np.ndarray, col: str) -> float:
-            """Fallback fill value for a workout/column."""
-            # workout median if any finite values exist
             finite = y[np.isfinite(y)]
             if finite.size:
                 return float(np.median(finite))
-            # else global median
             return float(self.global_median_.get(col, 0.0))
 
+        def passthrough_float_seq(x) -> list:
+            """Keep sequence unchanged (just normalize to float list to ensure consistent type)."""
+            y = _to_float_array(x)
+            return y.tolist()
+
         def clean_float_seq(x, col: str) -> list:
+            # If only cleaning a subset of cols, pass-through the rest unchanged.
+            if cfg.clean_only_cols is not None and col not in cfg.clean_only_cols:
+                return passthrough_float_seq(x)
+
             y = _to_float_array(x)
             if y.size == 0:
                 return []
@@ -341,9 +368,8 @@ class AdvancedSequenceCleaner:
                 y[(y < cfg.lat_min) | (y > cfg.lat_max)] = np.nan
             elif col == "longitude":
                 y[(y < cfg.lon_min) | (y > cfg.lon_max)] = np.nan
-            # altitude / distance: we mostly use jump + clip; keep negatives if dataset uses them (altitude can be below sea level)
 
-            # -------- optional prefilter smoothing (helps reduce false spike flags) --------
+            # -------- optional prefilter smoothing --------
             if cfg.prefilter_ema and col in (cfg.smooth_cols or []):
                 y = _ema_causal(y, cfg.prefilter_alpha)
 
@@ -354,23 +380,24 @@ class AdvancedSequenceCleaner:
                 y = _jump_filter_causal(y, cfg.speed_max_jump)
             elif col == "altitude":
                 y = _jump_filter_causal(y, cfg.altitude_max_jump)
+            elif col in ("latitude", "longitude"):
+                y = _jump_filter_causal(y, cfg.gps_max_jump)
 
             # -------- causal imputation with recovery window --------
             if cfg.impute:
                 y = _forward_fill_with_max_gap(y, cfg.max_gap)
 
-            # If still many NaNs, apply fallback strategy
+            # Fallback strategy
             if cfg.fallback_to_global_median_if_needed:
                 if np.all(~np.isfinite(y)):
                     fill_val = _workout_fallback(y, col)
                     y[:] = fill_val
                 else:
-                    # fill leading NaNs (watch startup) with first available or workout/global median
                     if not np.isfinite(y[0]):
                         fill_val = _workout_fallback(y, col)
                         y = _fill_leading_nans(y, fill_val)
 
-            # -------- clip using fitted bounds (doesn't use future) --------
+            # -------- clip using fitted bounds --------
             if cfg.clip:
                 lo, hi = self.clip_bounds_[col]
                 y = np.clip(y, lo, hi)
@@ -379,7 +406,7 @@ class AdvancedSequenceCleaner:
             if cfg.smooth and col in (cfg.smooth_cols or []):
                 y = _ema_causal(y, cfg.ema_alpha)
 
-            # ensure no NaNs remain (models usually require dense sequences)
+            # ensure no NaNs remain
             if np.any(~np.isfinite(y)):
                 fill_val = _workout_fallback(y, col)
                 y[~np.isfinite(y)] = fill_val
@@ -455,6 +482,20 @@ def main() -> None:
 
     p.add_argument("--mode", choices=["causal"], default="causal", help="Only causal mode in this advanced cleaner.")
 
+    # NEW: choose which sequence columns to clean
+    p.add_argument(
+        "--clean-cols",
+        nargs="+",
+        default=None,
+        help="If set, only clean these float sequence columns (others pass through). "
+             "Example: --clean-cols latitude longitude",
+    )
+    p.add_argument(
+        "--gps-only",
+        action="store_true",
+        help="Convenience flag: only clean latitude/longitude (recommended if only GPS is corrupted).",
+    )
+
     # dropping / validity
     p.add_argument("--min-seq-len", type=int, default=5)
     p.add_argument("--no-drop-invalid", action="store_true", help="Do NOT drop invalid workouts.")
@@ -474,7 +515,7 @@ def main() -> None:
     p.add_argument("--no-prefilter-ema", action="store_true")
     p.add_argument("--prefilter-alpha", type=float, default=0.12)
 
-    # plausibility + jump thresholds (tuning knobs)
+    # plausibility + jump thresholds
     p.add_argument("--hr-min", type=float, default=30.0)
     p.add_argument("--hr-max", type=float, default=230.0)
     p.add_argument("--hr-max-jump", type=float, default=50.0)
@@ -485,9 +526,23 @@ def main() -> None:
 
     p.add_argument("--altitude-max-jump", type=float, default=20.0)
 
+    # NEW: GPS jump threshold
+    p.add_argument(
+        "--gps-max-jump",
+        type=float,
+        default=0.0008,
+        help="Max allowed jump per sample for latitude/longitude (degrees). "
+             "0.0001 ≈ 11m latitude. 0.0008 ≈ 90m.",
+    )
+
     args = p.parse_args()
 
+    clean_only_cols = args.clean_cols
+    if args.gps_only:
+        clean_only_cols = ["latitude", "longitude"]
+
     cfg = AdvancedCleaningConfig(
+        clean_only_cols=clean_only_cols,
         drop_invalid_length_rows=not args.no_drop_invalid,
         min_seq_len=args.min_seq_len,
         clip=not args.no_clip,
@@ -506,6 +561,7 @@ def main() -> None:
         speed_max=args.speed_max,
         speed_max_jump=args.speed_max_jump,
         altitude_max_jump=args.altitude_max_jump,
+        gps_max_jump=args.gps_max_jump,
     )
 
     fit_on_path = Path(args.fit_on) if args.fit_on else None

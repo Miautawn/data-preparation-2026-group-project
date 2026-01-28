@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 import subprocess
 from pathlib import Path
 
 PY = ["uv", "run", "python", "src/project/cleaning/advanced_cleaning.py"]
 
+# GPS-focused params (degrees/sample)
+# Conservative, realistic: removes teleport spikes while keeping trajectory.
 SPORTS = {
-    "biking":  dict(speed_max=60, speed_jump=15, hr_jump=50, alt_jump=20, max_gap=60, ema=0.12),
-    "running": dict(speed_max=60, speed_jump=26, hr_jump=26, alt_jump=15, max_gap=45, ema=0.12),
-    "walking": dict(speed_max=31, speed_jump=16, hr_jump=24, alt_jump=12, max_gap=30, ema=0.15),
+    "biking":  dict(gps_max_jump=0.0008, max_gap=60, ema=0.12),
+    "running": dict(gps_max_jump=0.0005, max_gap=45, ema=0.12),
+    "walking": dict(gps_max_jump=0.0003, max_gap=30, ema=0.15),
 }
 
 def run_one(sport: str):
@@ -18,19 +21,22 @@ def run_one(sport: str):
     out = base / f"{sport}_test_raw_corrupted_cleaned.parquet"
 
     if not inp.exists():
-        raise FileNotFoundError(inp)
+        raise FileNotFoundError(f"Missing input: {inp}")
     if not fit.exists():
-        raise FileNotFoundError(fit)
+        raise FileNotFoundError(f"Missing baseline (fit-on): {fit}")
 
     p = SPORTS[sport]
+
     cmd = PY + [
         "--input", str(inp),
         "--fit-on", str(fit),
         "--output", str(out),
-        "--speed-max", str(p["speed_max"]),
-        "--speed-max-jump", str(p["speed_jump"]),
-        "--hr-max-jump", str(p["hr_jump"]),
-        "--altitude-max-jump", str(p["alt_jump"]),
+
+        # GPS-only cleaning (latitude/longitude)
+        "--gps-only",
+        "--gps-max-jump", str(p["gps_max_jump"]),
+
+        # recovery + smoothing
         "--max-gap", str(p["max_gap"]),
         "--ema-alpha", str(p["ema"]),
     ]

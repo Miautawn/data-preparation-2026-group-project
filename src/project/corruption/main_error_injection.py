@@ -141,7 +141,7 @@ def run_error_injection(std_scale: float):
         print(f"Done for {sport}.\n")
 
 if __name__ == "__main__":
-    scales = [2, 5, 10]
+    scales = [1.01, 2, 4, 8]
     for scale in scales:
         run_error_injection(scale)
     

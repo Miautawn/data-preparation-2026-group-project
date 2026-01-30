@@ -9,9 +9,9 @@ PY = ["uv", "run", "python", "src/project/cleaning/advanced_cleaning.py"]
 # GPS-focused params (degrees/sample)
 # Conservative, realistic: removes teleport spikes while keeping trajectory.
 SPORTS = {
-    "biking":  dict(gps_max_jump=0.5, max_gap=5, ema=0.3)
-    #"running": dict(gps_max_jump=0.02, max_gap=5, ema=0.3)
-    #"walking": dict(gps_max_jump=0.01, max_gap=10, ema=0.25),
+    "biking":  dict(gps_max_jump=0.5, max_gap=5, ema=0.3),
+    "running": dict(gps_max_jump=0.02, max_gap=5, ema=0.3),
+    "walking": dict(gps_max_jump=0.01, max_gap=10, ema=0.25),
 }
 
 def run_one(sport: str):

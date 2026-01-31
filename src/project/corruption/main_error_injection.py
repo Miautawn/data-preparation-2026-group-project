@@ -3,6 +3,7 @@ import sys
 import pandas as pd
 import numpy as np
 import pyarrow.parquet as pq
+import matplotlib.pyplot as plt
 from project.corruption.array_corruption.ConstantNoiseCorruption import ConstantNoiseCorruption
 from project.corruption.array_corruption.RandomNoiseCorruption import RandomNoiseCorruption
 
@@ -140,6 +141,51 @@ def run_error_injection(std_scale: float):
         final_df.to_parquet(output_file)
         print(f"Done for {sport}.\n")
 
+def visualize_sample(scale: float, sport: str):
+    """
+    Visualize original vs erroneous longitude for a sample file.
+    """
+    print(f"\n{'#'*10} Visualizing Sample for {sport} (Scale {scale}) {'#'*10}")
+    data_path = os.path.join(project_root, 'data', sport, f'erroneous_scale_{scale}_{sport}_data.parquet')
+    
+    if not os.path.exists(data_path):
+        print(f"Error: Data file not found at {data_path}")
+        return
+
+    print(f"Loading data from {data_path}...")
+    table = pq.read_table(data_path)
+    # We only need a sample, but loading the whole file into pandas is fine for this scale
+    df = pd.DataFrame(table.to_pydict())
+    
+    # Select the first data point (row 0)
+    row_idx = 0
+    orig_long = df['longitude'].iloc[row_idx]
+    err_long = df['erroneous_longitude'].iloc[row_idx]
+    
+    # Create plot
+    plt.figure(figsize=(12, 6))
+    
+    plt.plot(orig_long, label='Original Longitude', color='blue', alpha=0.7, linewidth=1.5)
+    plt.plot(err_long, label=f'Erroneous Longitude (Scale {scale})', color='red', alpha=0.5, linestyle='--', linewidth=1)
+    
+    plt.title(f"Longitude vs Erroneous Longitude (Scale {scale}) - {sport.capitalize()} Sample {row_idx}")
+    plt.xlabel("Index in Sequence")
+    plt.ylabel("Longitude Value")
+    plt.legend()
+    plt.grid(True, linestyle=':', alpha=0.6)
+    
+    # Save the plot
+    output_image = os.path.join(script_dir, 'corruption_comparison.png')
+    plt.tight_layout()
+    plt.savefig(output_image)
+    print(f"Plot saved successfully to {output_image}")
+
+    # Also print some stats
+    print(f"\nStats for Sample {row_idx}:")
+    print(f"Original STD:  {np.std(orig_long):.6f}")
+    print(f"Erroneous STD: {np.std(err_long):.6f}")
+    print(f"Actual Ratio:  {np.std(err_long)/np.std(orig_long):.4f}")
+
 if __name__ == "__main__":
     scales = [2, 5, 10]
     for scale in scales:
@@ -175,3 +221,6 @@ if __name__ == "__main__":
                 
                 status = "OK" if (has_cols and len_match and abs(ratio - scale) < 1e-4) else "NOK"
                 print(f"{status} [{sport.upper()}] Cols: {has_cols}, Len Match: {len_match}, Std Ratio: {ratio:.4f} (Target: {scale})")
+    
+    # Finally, visualize one sample (e.g., Biking Scale 2)
+    visualize_sample(2, "biking")

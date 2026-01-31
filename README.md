@@ -41,10 +41,12 @@ To fully reproduce the project workflow, you need to re-run all the steps:
 * [dataset cleaning](./src/project/cleaning/)
 * analysis
 
-However, `dataset preparation` and `model training` can take up some time, thus we offer checkpointed artifacts which you can easily downalod by following the instructions [here](./src/project/baked_artifacts/README.md). This will allow you to more efortelesly run the rest of the steps.
+However, `dataset preparation` and `model training` can take up some time, thus we offer checkpointed artifacts which you can easily downalod by following the instructions [here](./src/project/baked_artifacts/README.md). This will allow you to more effortlessly run the rest of the steps.
 
-After you have downloaded (or re-generated) the dataset and ML model artifacts, you can perform error injection via:
-**ADD INSTRUCTIONS HERE**
+After you have downloaded (or re-generated) the dataset and ML model artifacts, you can perform error injection by running the command below. The details of the generated dataset in [this file](./src/project/corruption/README.md) :
+```bash
+python src/project/corruption/main_error_injection.py
+```
 
 The, you can perform data cleaning operations via:
 **ADD INSTRUCTIONS HERE**

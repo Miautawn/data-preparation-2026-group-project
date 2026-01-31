@@ -187,7 +187,7 @@ def visualize_sample(scale: float, sport: str):
     print(f"Actual Ratio:  {np.std(err_long)/np.std(orig_long):.4f}")
 
 if __name__ == "__main__":
-    scales = [2, 5, 10]
+    scales = [2, 4, 8]
     for scale in scales:
         run_error_injection(scale)
     

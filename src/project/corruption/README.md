@@ -14,8 +14,8 @@ The error injection script (`main_error_injection.py`) uses the following config
 ### Standard Deviation Scales
 The following `std_scale` values are used to generate corrupted datasets:
 - **2.0**: The resulting array's standard deviation is twice that of the original.
-- **5.0**: The resulting array's standard deviation is five times that of the original.
-- **10.0**: The resulting array's standard deviation is ten times that of the original.
+- **4.0**: The resulting array's standard deviation is four times that of the original.
+- **8.0**: The resulting array's standard deviation is eight times that of the original.
 
 ### Data Partitioning
 The input dataset is split into two equal halves (50% each) for different corruption types:

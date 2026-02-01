@@ -41,12 +41,7 @@ uv run python src/project/corruption/array_corruption/corrupt_data.py \
   --segment-fraction 0.2 \
   --num-segments 2 \
   --seed 42 \
-  --columns heart_rate derived_speed altitude
-
-## batch clean all files
-uv run python src/project/cleaning/cleaning_generic.py \
-  --root src/project/temp \
-  --pattern "**/*_test_raw_corrupted.parquet"
+  --columns 
 
 ## advanced clean a file
 uv run python src/project/cleaning/advanced_cleaning.py \
@@ -57,5 +52,8 @@ uv run python src/project/cleaning/advanced_cleaning.py \
   --speed-max-jump 15 \
   --max-gap 60 \
   --ema-alpha 0.12
+
+# clean all files
+uv run python src/project/cleaning/run_clean_all.py
 
 

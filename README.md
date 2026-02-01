@@ -30,20 +30,24 @@ src
         └── my_utils.py
 ```
 
+## How to run
 
-### for running data corruption script:
-uv run python src/project/corruption/array_corruption/corrupt_data.py \
-  --input  src/project/temp/biking/biking_test_raw.parquet \
-  --output src/project/temp/biking/biking_test_raw_corrupted.parquet \
-  --method random \
-  --std-scale 3.0 \
-  --row-fraction 1.0 \
-  --segment-fraction 0.2 \
-  --num-segments 2 \
-  --seed 42 \
-  --columns heart_rate derived_speed altitude
+To fully reproduce the project workflow, you need to re-run all the steps:
+> [!WARNING]
+> First steps can be time consuming, read the instructions below first!
+* [dataset preparation](./src/project/scripts/dataset/README.md)
+* [model training](./src/project/scripts/modelling/README.md)
+* [error injection](./src/project/corruption/)
+* [dataset cleaning](./src/project/cleaning/)
+* analysis
 
-## batch clean all files
-uv run python src/project/cleaning/cleaning_generic.py \
-  --root src/project/temp \
-  --pattern "**/*_test_raw_corrupted.parquet"
+However, `dataset preparation` and `model training` can take up some time, thus we offer checkpointed artifacts which you can easily downalod by following the instructions [here](./src/project/baked_artifacts/README.md). This will allow you to more efortelesly run the rest of the steps.
+
+After you have downloaded (or re-generated) the dataset and ML model artifacts, you can perform error injection via:
+**ADD INSTRUCTIONS HERE**
+
+The, you can perform data cleaning operations via:
+**ADD INSTRUCTIONS HERE**
+
+And finally, you can re-run the model inference and analysis via:
+**ADD INSTRUCTIONS HERE**

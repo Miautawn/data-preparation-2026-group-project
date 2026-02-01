@@ -7,7 +7,6 @@ from pathlib import Path
 PY = ["uv", "run", "python", "src/project/cleaning/advanced_cleaning.py"]
 
 # GPS-focused params (degrees/sample)
-# Conservative, realistic: removes teleport spikes while keeping trajectory.
 SPORTS = {
     "biking":  dict(gps_max_jump=0.5, max_gap=5, ema=0.3),
     "running": dict(gps_max_jump=0.02, max_gap=5, ema=0.3),

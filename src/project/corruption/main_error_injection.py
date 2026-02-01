@@ -20,7 +20,7 @@ def run_error_injection(std_scale: float):
     Inject errors to longitude and latitude columns with a specific std_scale.
     """
     print(f"\n{'='*20} Running Injection for std_scale={std_scale} {'='*20}")
-    data_root = os.path.join(project_root, "data")
+    data_root = os.path.join(project_root, "src", "project", "baked_artifacts")
     sports = ["biking", "running", "walking"]
     seed = 42
     np.random.seed(seed)
@@ -146,7 +146,7 @@ def visualize_sample(scale: float, sport: str):
     Visualize original vs erroneous longitude for a sample file.
     """
     print(f"\n{'#'*10} Visualizing Sample for {sport} (Scale {scale}) {'#'*10}")
-    data_path = os.path.join(project_root, 'data', sport, f'erroneous_scale_{scale}_{sport}_data.parquet')
+    data_path = os.path.join(project_root, 'src', 'project', 'baked_artifacts', sport, f'erroneous_scale_{scale}_{sport}_data.parquet')
     
     if not os.path.exists(data_path):
         print(f"Error: Data file not found at {data_path}")
@@ -195,7 +195,7 @@ if __name__ == "__main__":
     print("Verifying outputs (Column presence, Length match, Std Scale):")
     print("#"*40)
     
-    data_root = os.path.join(project_root, "data")
+    data_root = os.path.join(project_root, "src", "project", "baked_artifacts")
     for scale in scales:
         print(f"\n--- SCALE: {scale} ---")
         for sport in ["biking", "running", "walking"]:

@@ -30,30 +30,42 @@ src
         └── my_utils.py
 ```
 
+## How to run
 
-### for running data corruption script:
-uv run python src/project/corruption/array_corruption/corrupt_data.py \
-  --input  src/project/temp/biking/biking_test_raw.parquet \
-  --output src/project/temp/biking/biking_test_raw_corrupted.parquet \
-  --method random \
-  --std-scale 3.0 \
-  --row-fraction 1.0 \
-  --segment-fraction 0.2 \
-  --num-segments 2 \
-  --seed 42 \
-  --columns 
+To fully reproduce the project workflow, you need to re-run all the steps:
+> [!WARNING]
+> First steps can be time consuming, read the instructions below first!
+* [dataset preparation](./src/project/scripts/dataset/README.md)
+* [model training](./src/project/scripts/modelling/README.md)
+* [error injection](./src/project/corruption/)
+* [dataset cleaning](./src/project/cleaning/)
+* analysis
 
+However, `dataset preparation` and `model training` can take up some time, thus we offer checkpointed artifacts which you can easily downalod by following the instructions [here](./src/project/baked_artifacts/README.md). This will allow you to more effortlessly run the rest of the steps.
+
+After you have downloaded (or re-generated) the dataset and ML model artifacts, you can perform error injection by running the command below. The details of the generated dataset in [this file](./src/project/corruption/README.md) :
+```bash
+python src/project/corruption/main_error_injection.py
+```
+
+The, you can perform data cleaning operations via:
 ## advanced clean a file
 uv run python src/project/cleaning/advanced_cleaning.py \
-  --input  src/project/temp/biking/biking_test_raw_corrupted.parquet \
-  --fit-on src/project/temp/biking/biking_test_raw.parquet \
-  --output src/project/temp/biking/biking_test_raw_corrupted_cleaned.parquet \
-  --speed-max 60 \
-  --speed-max-jump 15 \
-  --max-gap 60 \
-  --ema-alpha 0.12
+  --input  [corrupt data file path] \
+  --fit-on [training data file path] \
+  --output [out put file path]  \
+  --speed-max [int] \
+  --speed-max-jump [int] \
+  --max-gap [int] \
+  --ema-alpha [float]
 
 # clean all files
 uv run python src/project/cleaning/run_clean_all.py
+
+And finally, you can re-run the model inference and analysis via:
+**ADD INSTRUCTIONS HERE**
+
+
+
 
 

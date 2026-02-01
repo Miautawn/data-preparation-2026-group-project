@@ -6,3 +6,8 @@ __pycache__
 .DS_Store
 .ipynb_checkpoints
 data
+
+
+**/baked_artifacts/*
+!**/baked_artifacts/README.md
+!**/baked_artifacts/download_baked_artifacts.py

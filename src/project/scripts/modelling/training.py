@@ -17,7 +17,7 @@ OUTPUT_MODEL_PATH = CACHE_DIR / "fitrec_model_non_autoregressive.pt"
 # CONFIG
 # This flag indicates whether to train the model
 # autoregressively using previous heart rate as input
-USE_HEARTRATE_INPUT = False
+USE_HEARTRATE_INPUT = True
 
 NUMERICAL_INPUTS = [
     "time_elapsed_standardized",

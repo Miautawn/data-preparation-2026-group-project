@@ -48,24 +48,24 @@ After you have downloaded (or re-generated) the dataset and ML model artifacts, 
 python src/project/corruption/main_error_injection.py
 ```
 
-The, you can perform data cleaning operations via:
-## advanced clean a file
-uv run python src/project/cleaning/advanced_cleaning.py \
-  --input  [corrupt data file path] \
-  --fit-on [training data file path] \
-  --output [out put file path]  \
-  --speed-max [int] \
-  --speed-max-jump [int] \
-  --max-gap [int] \
-  --ema-alpha [float]
 
-# clean all files
+The, you can perform data cleaning operations via:
+```bash
 uv run python src/project/cleaning/run_clean_all.py
+```
+
+> [!NOTE]
+> You can specify more options for ceaning by passing CLI parameters:
+> ```bash
+> uv run python src/project/cleaning/advanced_cleaning.py \
+>  --input  [corrupt data file path] \
+>  --fit-on [training data file path] \
+>  --output [out put file path]  \
+>  --speed-max [int] \
+>  --speed-max-jump [int] \
+>  --max-gap [int] \
+>  --ema-alpha [float]
+> ```
 
 And finally, you can re-run the model inference and analysis via:
 **ADD INSTRUCTIONS HERE**
-
-
-
-
-

@@ -17,19 +17,6 @@ Then, setup the pre-commit hooks by running:
 pre-commit install
 ```
 
-## Project structure
-We use standard python "package/library" project structure:
-```
-src
-└── project
-    ├── main.py
-    ├── notebooks
-    │   └── main.ipynb
-    └── utils
-        ├── __init__.py
-        └── my_utils.py
-```
-
 ## How to run
 
 To fully reproduce the project workflow, you need to re-run all the steps:

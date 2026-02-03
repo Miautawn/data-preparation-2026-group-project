@@ -54,5 +54,4 @@ uv run python src/project/cleaning/run_clean_all.py
 >  --ema-alpha [float]
 > ```
 
-And finally, you can re-run the model inference and analysis via:
-**ADD INSTRUCTIONS HERE**
+And finally, you can re-run the model inference and analysis using this [notebook](./src/project/notebooks/test_inference_biking_3variants.ipynb)
